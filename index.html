@@ -4,22 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema de Gestión JDC TECH</title>
-    <!-- Tailwind CSS CDN -->
+    <!-- Tailwind CSS CDN para un estilo moderno y responsivo -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- React & ReactDOM CDN -->
+    <!-- React y ReactDOM CDN para la lógica de la aplicación -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-    <!-- Babel for JSX compilation in browser -->
+    <!-- Babel para compilar JSX en el navegador -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- Lucide React UMD -->
-    <script src="https://unpkg.com/lucide-react@0.330.0/dist/umd/lucide-react.min.js"></script>
-    <!-- Firebase Libraries -->
+    <!-- Firebase Libraries para la base de datos en tiempo real -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // Make Firebase accessible globally to the React component
+        
+        // Se hace que las funciones de Firebase sean accesibles globalmente para el componente React
         window.firebase = {
             initializeApp,
             getAuth,
@@ -70,6 +68,32 @@
                 width: 500px;
             }
         }
+        /* Estilos de impresión para las facturas */
+        @media print {
+            body > * {
+                display: none;
+            }
+            .modal {
+                display: flex;
+                position: static;
+                width: auto;
+                height: auto;
+                background-color: white;
+            }
+            .modal-content {
+                width: 100%;
+                max-width: none;
+                max-height: none;
+                box-shadow: none;
+                padding: 0;
+                margin: 0;
+            }
+            .modal .print-only-container {
+                display: block;
+                width: 100%;
+                page-break-after: always;
+            }
+        }
     </style>
 </head>
 <body>
@@ -80,12 +104,787 @@
 <script type="text/babel">
     const { useState, useEffect } = React;
     const { createPortal } = ReactDOM;
-    const { initializeApp, getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, query, orderBy } = window.firebase;
-    // USO CORRECTO DE LOS ICONOS LUCIDE
-    const { ShoppingCart, Package, Users, Plus, Edit, Briefcase, ChevronRight, X, Loader2, Printer } = window.LucideReact;
 
-    // ... (el resto de tu código JS/React va aquí, SIN líneas cortadas ni errores de sintaxis)
-    // Si quieres que te pase el archivo completo con todas las líneas corregidas, avísame.
+    // Se obtienen las funciones de Firebase del objeto global `window.firebase`
+    const { initializeApp, getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, query, orderBy } = window.firebase;
+
+    // Se definen los iconos como SVG para evitar dependencias externas.
+    const ShoppingCart = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-shopping-cart"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>;
+    const Package = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-package"><path d="m7.5 4.27 9 5.15"/><path d="M21 8.5v5.5c0 1.5-1 2-2 1.5l-2.48-1.5c-.99-.6-1.52-1.2-2.02-2.15"/><path d="M3 8.5v5.5c0 1.5 1 2 2 1.5l2.48-1.5c.99-.6 1.52-1.2 2.02-2.15"/><path d="M12 22v-8.5"/><path d="m16.5 4.27-9 5.15"/><path d="M5.4 15.5l-.34 1.7A2 2 0 0 0 7 19h10a2 2 0 0 0 1.84-1.7l-.34-1.7"/></svg>;
+    const Users = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-users"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
+    const Plus = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-plus"><path d="M5 12h14"/><path d="M12 5v14"/></svg>;
+    const Edit = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-edit"><path d="M21.174 6.812a1 1 0 0 0-1.206-1.207L11 15.586V17h1.414l8.66-8.66Z"/><path d="M11 15.586V17h1.414L21.174 6.812a1 1 0 0 0-1.206-1.207L11 15.586Z"/></svg>;
+    const Briefcase = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-briefcase"><rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><path d="M12 12h4"/><path d="M12 12H8"/></svg>;
+    const ChevronRight = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevron-right"><path d="m9 18 6-6-6-6"/></svg>;
+    const X = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-x"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>;
+    const Loader2 = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-loader-2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>;
+    const Printer = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-printer"><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M18 14v4a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-4"/><path d="M14 8V2H10v6"/><path d="M10 12H8"/><path d="M16 12h-2"/></svg>;
+    
+
+    // El componente principal de la aplicación
+    const App = () => {
+        const [db, setDb] = useState(null);
+        const [auth, setAuth] = useState(null);
+        const [userId, setUserId] = useState(null);
+        const [isAuthReady, setIsAuthReady] = useState(false);
+        const [activeTab, setActiveTab] = useState('inventario');
+        const [products, setProducts] = useState([]);
+        const [employees, setEmployees] = useState([]);
+        const [cart, setCart] = useState([]);
+        const [contacts, setContacts] = useState([]);
+        const [invoices, setInvoices] = useState([]);
+        const [showProductModal, setShowProductModal] = useState(false);
+        const [showContactModal, setShowContactModal] = useState(false);
+        const [showEmployeeModal, setShowEmployeeModal] = useState(false);
+        const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+        const [currentContact, setCurrentContact] = useState(null);
+        const [currentProduct, setCurrentProduct] = useState(null);
+        const [currentEmployee, setCurrentEmployee] = useState(null);
+        const [currentInvoice, setCurrentInvoice] = useState(null);
+        const [isLoading, setIsLoading] = useState(true);
+        const [message, setMessage] = useState(null);
+        const [confirmation, setConfirmation] = useState(null);
+
+        // Configuración inicial de Firebase y autenticación
+        useEffect(() => {
+            try {
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+                const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+                const app = initializeApp(firebaseConfig);
+                const firestoreDb = getFirestore(app);
+                const firebaseAuth = getAuth(app);
+                setDb(firestoreDb);
+                setAuth(firebaseAuth);
+
+                // Escucha los cambios en el estado de autenticación
+                const unsubscribe = onAuthStateChanged(firebaseAuth, async (user) => {
+                    if (user) {
+                        setUserId(user.uid);
+                    } else {
+                        // Iniciar sesión con el token personalizado si está disponible, de lo contrario, de forma anónima
+                        try {
+                            if (initialAuthToken) {
+                                await signInWithCustomToken(firebaseAuth, initialAuthToken);
+                            } else {
+                                await signInAnonymously(firebaseAuth);
+                            }
+                        } catch (error) {
+                            console.error('Error de autenticación de Firebase:', error);
+                        }
+                    }
+                    setIsAuthReady(true);
+                    setIsLoading(false);
+                });
+
+                return () => unsubscribe();
+            } catch (e) {
+                console.error('Error al inicializar Firebase:', e);
+                setIsLoading(false);
+            }
+        }, []);
+
+        // Oyentes de datos de Firestore
+        useEffect(() => {
+            if (!isAuthReady || !db || !userId) {
+                return;
+            }
+
+            const privatePath = `/artifacts/${typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'}/users/${userId}`;
+            
+            // Oyente de productos
+            const unsubscribeProducts = onSnapshot(collection(db, `${privatePath}/products`), (snapshot) => {
+                const productList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                setProducts(productList);
+            });
+
+            // Oyente de contactos
+            const unsubscribeContacts = onSnapshot(collection(db, `${privatePath}/contacts`), (snapshot) => {
+                const contactList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                setContacts(contactList);
+            });
+
+            // Oyente de empleados
+            const unsubscribeEmployees = onSnapshot(collection(db, `${privatePath}/employees`), (snapshot) => {
+                const employeeList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                setEmployees(employeeList);
+            });
+
+            // Oyente de facturas ordenado por fecha de creación
+            const unsubscribeInvoices = onSnapshot(query(collection(db, `${privatePath}/invoices`), orderBy('timestamp', 'desc')), (snapshot) => {
+                const invoiceList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                setInvoices(invoiceList);
+            }, (error) => {
+                console.error('Error al obtener las facturas:', error);
+            });
+
+            return () => {
+                unsubscribeProducts();
+                unsubscribeContacts();
+                unsubscribeEmployees();
+                unsubscribeInvoices();
+            };
+        }, [isAuthReady, db, userId]);
+
+        // Operaciones de Firestore
+        const addProduct = async (newProduct) => {
+            try {
+                await addDoc(collection(db, `/artifacts/${typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'}/users/${userId}/products`), newProduct);
+            } catch (error) {
+                setMessage('Error al agregar el producto.');
+                console.error('Error adding document: ', error);
+            }
+        };
+
+        const updateProduct = async (productId, updatedFields) => {
+            try {
+                await updateDoc(doc(db, `/artifacts/${typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'}/users/${userId}/products`, productId), updatedFields);
+            } catch (error) {
+                setMessage('Error al actualizar el producto.');
+                console.error('Error updating document: ', error);
+            }
+        };
+
+        const addContact = async (newContact) => {
+            try {
+                await addDoc(collection(db, `/artifacts/${typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'}/users/${userId}/contacts`), newContact);
+            } catch (error) {
+                setMessage('Error al agregar el contacto.');
+                console.error('Error adding document: ', error);
+            }
+        };
+
+        const updateContact = async (contactId, updatedFields) => {
+            try {
+                await updateDoc(doc(db, `/artifacts/${typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'}/users/${userId}/contacts`, contactId), updatedFields);
+            } catch (error) {
+                setMessage('Error al actualizar el contacto.');
+                console.error('Error updating document: ', error);
+            }
+        };
+
+        const addEmployee = async (newEmployee) => {
+            try {
+                await addDoc(collection(db, `/artifacts/${typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'}/users/${userId}/employees`), newEmployee);
+            } catch (error) {
+                setMessage('Error al agregar el empleado.');
+                console.error('Error adding document: ', error);
+            }
+        };
+        
+        const updateEmployee = async (employeeId, updatedFields) => {
+            try {
+                await updateDoc(doc(db, `/artifacts/${typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'}/users/${userId}/employees`, employeeId), updatedFields);
+            } catch (error) {
+                setMessage('Error al actualizar el empleado.');
+                console.error('Error updating document: ', error);
+            }
+        };
+
+        const addInvoice = async (newInvoice) => {
+            try {
+                await addDoc(collection(db, `/artifacts/${typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'}/users/${userId}/invoices`), newInvoice);
+            } catch (error) {
+                setMessage('Error al agregar la factura.');
+                console.error('Error adding document: ', error);
+            }
+        };
+
+        const updateInvoiceStatus = async (invoiceId, newStatus) => {
+            try {
+                await updateDoc(doc(db, `/artifacts/${typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'}/users/${userId}/invoices`, invoiceId), { estado: newStatus });
+            } catch (error) {
+                setMessage('Error al actualizar el estado de la factura.');
+                console.error('Error updating document: ', error);
+            }
+        };
+
+        // Lógica de las pestañas
+        const handleAddToCart = (productId) => {
+            const product = products.find(p => p.id === productId);
+            if (!product || product.stock <= 0) {
+                setMessage('No hay stock disponible de este producto.');
+                return;
+            }
+
+            const cartItem = cart.find(item => item.id === productId);
+            if (cartItem) {
+                if (cartItem.quantity < product.stock) {
+                    setCart(cart.map(item =>
+                        item.id === productId ? { ...item, quantity: item.quantity + 1 } : item
+                    ));
+                } else {
+                    setMessage('Has alcanzado el stock máximo disponible para este producto.');
+                }
+            } else {
+                setCart([...cart, { ...product, quantity: 1 }]);
+            }
+        };
+
+        const handleRemoveFromCart = (productId) => {
+            setCart(cart.filter(item => item.id !== productId));
+        };
+
+        const handleCheckout = async () => {
+            if (cart.length === 0) {
+                setMessage('El carrito está vacío. Agregue productos para finalizar el pedido.');
+                return;
+            }
+            
+            // Crear un objeto de factura
+            const newInvoice = {
+                items: cart.map(item => ({
+                    id: item.id,
+                    name: item.name,
+                    price: item.price,
+                    quantity: item.quantity,
+                })),
+                total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
+                timestamp: new Date().toISOString(),
+                estado: 'Pendiente', // Estado inicial para la entrega
+            };
+
+            try {
+                // Agregar la factura a Firestore
+                await addInvoice(newInvoice);
+                
+                // Actualizar el stock de los productos en Firestore
+                for (const item of cart) {
+                    const productToUpdate = products.find(p => p.id === item.id);
+                    if (productToUpdate) {
+                        const newStock = productToUpdate.stock - item.quantity;
+                        await updateProduct(productToUpdate.id, { stock: newStock });
+                    }
+                }
+
+                // Limpiar el carrito
+                setCart([]);
+                setMessage('¡Pedido finalizado con éxito! El stock y las facturas han sido actualizados.');
+                setActiveTab('ordenes');
+            } catch (error) {
+                console.error('Error durante la finalización del pedido:', error);
+                setMessage('Hubo un error al procesar el pedido. Por favor, inténtelo de nuevo.');
+            }
+        };
+        
+        // Modales y formularios
+        const Modal = ({ children, onClose, className = "" }) => {
+            return createPortal(
+                <div className={`modal flex justify-center items-center p-4 ${className}`}>
+                    <div className="modal-content relative">
+                        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors">
+                            <X size={24} />
+                        </button>
+                        {children}
+                    </div>
+                </div>,
+                document.getElementById('modal-root')
+            );
+        };
+        
+        const MessageModal = ({ message, onClose }) => (
+            <Modal onClose={onClose}>
+                <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full relative">
+                    <h3 className="text-xl font-bold mb-4">Mensaje</h3>
+                    <p>{message}</p>
+                    <div className="flex justify-end mt-4">
+                        <button onClick={onClose} className="bg-blue-500 text-white py-2 px-4 rounded-lg">Aceptar</button>
+                    </div>
+                </div>
+            </Modal>
+        );
+
+        const ConfirmationModal = ({ message, onConfirm, onClose }) => (
+            <Modal onClose={onClose}>
+                <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full relative">
+                    <h3 className="text-xl font-bold mb-4">Confirmación</h3>
+                    <p>{message}</p>
+                    <div className="flex justify-end space-x-4 mt-4">
+                        <button onClick={() => { onConfirm(); onClose(); }} className="bg-green-500 text-white py-2 px-4 rounded-lg">Sí</button>
+                        <button onClick={onClose} className="bg-gray-300 text-gray-800 py-2 px-4 rounded-lg">No</button>
+                    </div>
+                </div>
+            </Modal>
+        );
+
+        const ProductForm = () => {
+            const [name, setName] = useState(currentProduct?.name || '');
+            const [price, setPrice] = useState(currentProduct?.price || '');
+            const [stock, setStock] = useState(currentProduct?.stock || '');
+            const [alertThreshold, setAlertThreshold] = useState(currentProduct?.alertThreshold || '');
+            const [image, setImage] = useState(currentProduct?.image || '');
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                const newProduct = {
+                    name,
+                    price: parseFloat(price),
+                    stock: parseInt(stock),
+                    alertThreshold: parseInt(alertThreshold),
+                    image: image || `https://placehold.co/150x150/f3f4f6/000000?text=${name.substring(0, 5)}`,
+                };
+
+                if (currentProduct) {
+                    await updateProduct(currentProduct.id, newProduct);
+                } else {
+                    await addProduct(newProduct);
+                }
+                setShowProductModal(false);
+                setCurrentProduct(null);
+            };
+
+            return (
+                <form onSubmit={handleSubmit} className="p-6 bg-white rounded-lg shadow-md">
+                    <h3 className="text-xl font-bold mb-4">{currentProduct ? 'Editar Producto' : 'Añadir Nuevo Producto'}</h3>
+                    <div className="space-y-4">
+                        <input type="text" placeholder="Nombre" value={name} onChange={e => setName(e.target.value)} required className="w-full p-2 border rounded" />
+                        <input type="number" placeholder="Precio" value={price} onChange={e => setPrice(e.target.value)} step="0.01" required className="w-full p-2 border rounded" />
+                        <input type="number" placeholder="Stock" value={stock} onChange={e => setStock(e.target.value)} required className="w-full p-2 border rounded" />
+                        <input type="number" placeholder="Umbral de Alerta de Stock" value={alertThreshold} onChange={e => setAlertThreshold(e.target.value)} required className="w-full p-2 border rounded" />
+                        <input type="text" placeholder="URL de la imagen (opcional)" value={image} onChange={e => setImage(e.target.value)} className="w-full p-2 border rounded" />
+                        <div className="flex justify-end space-x-2">
+                            <button type="button" onClick={() => { setShowProductModal(false); setCurrentProduct(null); }} className="bg-gray-300 text-gray-800 py-2 px-4 rounded-lg">Cancelar</button>
+                            <button type="submit" className="bg-blue-500 text-white py-2 px-4 rounded-lg">Guardar</button>
+                        </div>
+                    </div>
+                </form>
+            );
+        };
+
+        const ContactForm = () => {
+            const [name, setName] = useState(currentContact?.name || '');
+            const [email, setEmail] = useState(currentContact?.email || '');
+            const [type, setType] = useState(currentContact?.type || 'Cliente');
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                const newContact = { name, email, type };
+
+                if (currentContact) {
+                    await updateContact(currentContact.id, newContact);
+                } else {
+                    await addContact(newContact);
+                }
+                setShowContactModal(false);
+                setCurrentContact(null);
+            };
+
+            return (
+                <form onSubmit={handleSubmit} className="p-6 bg-white rounded-lg shadow-md">
+                    <h3 className="text-xl font-bold mb-4">{currentContact ? 'Editar Contacto' : 'Añadir Nuevo Contacto'}</h3>
+                    <div className="space-y-4">
+                        <input type="text" placeholder="Nombre" value={name} onChange={e => setName(e.target.value)} required className="w-full p-2 border rounded" />
+                        <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full p-2 border rounded" />
+                        <select value={type} onChange={e => setType(e.target.value)} className="w-full p-2 border rounded">
+                            <option value="Cliente">Cliente</option>
+                            <option value="Proveedor">Proveedor</option>
+                        </select>
+                        <div className="flex justify-end space-x-2">
+                            <button type="button" onClick={() => { setShowContactModal(false); setCurrentContact(null); }} className="bg-gray-300 text-gray-800 py-2 px-4 rounded-lg">Cancelar</button>
+                            <button type="submit" className="bg-blue-500 text-white py-2 px-4 rounded-lg">Guardar</button>
+                        </div>
+                    </div>
+                </form>
+            );
+        };
+
+        const EmployeeForm = () => {
+            const [name, setName] = useState(currentEmployee?.name || '');
+            const [role, setRole] = useState(currentEmployee?.role || '');
+            const [functions, setFunctions] = useState(currentEmployee?.functions || '');
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                const newEmployee = { name, role, functions };
+
+                if (currentEmployee) {
+                    await updateEmployee(currentEmployee.id, newEmployee);
+                } else {
+                    await addEmployee(newEmployee);
+                }
+                setShowEmployeeModal(false);
+                setCurrentEmployee(null);
+            };
+
+            return (
+                <form onSubmit={handleSubmit} className="p-6 bg-white rounded-lg shadow-md">
+                    <h3 className="text-xl font-bold mb-4">{currentEmployee ? 'Editar Empleado' : 'Añadir Nuevo Empleado'}</h3>
+                    <div className="space-y-4">
+                        <input type="text" placeholder="Nombre" value={name} onChange={e => setName(e.target.value)} required className="w-full p-2 border rounded" />
+                        <input type="text" placeholder="Rol (ej. Vendedor, Logística)" value={role} onChange={e => setRole(e.target.value)} required className="w-full p-2 border rounded" />
+                        <textarea placeholder="Funciones o tareas a realizar" value={functions} onChange={e => setFunctions(e.target.value)} required className="w-full p-2 border rounded h-24" />
+                        <div className="flex justify-end space-x-2">
+                            <button type="button" onClick={() => { setShowEmployeeModal(false); setCurrentEmployee(null); }} className="bg-gray-300 text-gray-800 py-2 px-4 rounded-lg">Cancelar</button>
+                            <button type="submit" className="bg-blue-500 text-white py-2 px-4 rounded-lg">Guardar</button>
+                        </div>
+                    </div>
+                </form>
+            );
+        };
+        
+        const InvoiceModalContent = ({ invoice }) => {
+            if (!invoice) return null;
+            const { id, items, total, timestamp } = invoice;
+            const formattedDate = new Date(timestamp).toLocaleString();
+            
+            return (
+                <div className="p-6 bg-white rounded-lg shadow-md print-only-container">
+                    <h2 className="text-2xl font-bold mb-4">Detalle de Factura</h2>
+                    <p className="text-sm text-gray-500 mb-4">ID de Factura: {id}</p>
+                    <div className="border-b border-gray-300 pb-4 mb-4">
+                        <div className="grid grid-cols-3 gap-4 font-bold border-b border-gray-200 pb-2 mb-2">
+                            <span>Producto</span>
+                            <span className="text-center">Cantidad</span>
+                            <span className="text-right">Total</span>
+                        </div>
+                        {items.map((item, index) => (
+                            <div key={index} className="grid grid-cols-3 gap-4 mb-2">
+                                <span>{item.name}</span>
+                                <span className="text-center">{item.quantity}</span>
+                                <span className="text-right">${(item.price * item.quantity).toFixed(2)}</span>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="flex justify-between items-center text-xl font-bold mb-4">
+                        <span>Total:</span>
+                        <span>${total.toFixed(2)}</span>
+                    </div>
+                    <div className="text-sm text-gray-500">
+                        <p>Fecha de Venta: {formattedDate}</p>
+                    </div>
+                    <div className="mt-6 flex justify-end space-x-4">
+                        <button onClick={() => window.print()} className="bg-gray-500 text-white py-2 px-4 rounded-lg shadow-md hover:bg-gray-600 transition-colors flex items-center">
+                            <Printer /> Imprimir
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+        // Componentes de las pestañas
+        const InventoryTab = () => (
+            <div>
+                <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-2xl font-bold text-gray-700">Inventario de Productos</h2>
+                    <button onClick={() => { setCurrentProduct(null); setShowProductModal(true); }} className="bg-blue-500 text-white p-2 rounded-full shadow-lg hover:bg-blue-600 transition-colors">
+                        <Plus />
+                    </button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {products.length > 0 ? products.map(product => (
+                        <div key={product.id} className="bg-white p-4 rounded-lg shadow-lg flex flex-col items-center text-center">
+                            <img src={product.image} alt={product.name} className="w-24 h-24 mb-4 rounded-lg object-cover" />
+                            <h3 className="text-xl font-semibold text-gray-800">{product.name}</h3>
+                            <p className="text-gray-600 mt-1">Stock: <span className="font-bold">{product.stock}</span></p>
+                            <p className="text-indigo-600 text-lg font-bold mt-2">${product.price.toFixed(2)}</p>
+                            <div className={`mt-3 py-1 px-3 rounded-full text-xs font-semibold text-white ${product.stock <= product.alertThreshold ? 'bg-red-500' : 'bg-green-500'}`}>
+                                {product.stock <= product.alertThreshold ? 'Stock Bajo' : 'Stock Normal'}
+                            </div>
+                            <div className="flex mt-4 space-x-2">
+                                <button onClick={() => { setCurrentProduct(product); setShowProductModal(true); }} className="p-2 rounded-lg bg-yellow-400 text-white hover:bg-yellow-500 transition-colors">
+                                    <Edit />
+                                </button>
+                                <button onClick={() => handleAddToCart(product.id)} className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 transition-colors">
+                                    Agregar al Carrito
+                                </button>
+                            </div>
+                        </div>
+                    )) : <p className="text-center text-gray-500 col-span-full">No hay productos registrados. Por favor, agregue algunos.</p>}
+                </div>
+            </div>
+        );
+        
+        const SalesTab = () => {
+            const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+            return (
+                <div>
+                    <h2 className="text-2xl font-bold text-gray-700 mb-4">Gestión de Pedidos</h2>
+                    <div className="flex flex-col md:flex-row gap-6">
+                        <div className="w-full md:w-2/3 bg-gray-50 p-6 rounded-lg shadow-inner">
+                            <h3 className="text-xl font-semibold mb-4">Carrito de Pedidos</h3>
+                            <div className="space-y-4">
+                                {cart.length > 0 ? cart.map(item => (
+                                    <div key={item.id} className="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm">
+                                        <div className="flex items-center space-x-4">
+                                            <span className="font-medium">{item.name}</span>
+                                            <span className="text-sm text-gray-500">x{item.quantity}</span>
+                                        </div>
+                                        <div className="flex items-center space-x-4">
+                                            <span className="font-semibold text-gray-800">${(item.price * item.quantity).toFixed(2)}</span>
+                                            <button onClick={() => handleRemoveFromCart(item.id)} className="text-red-500 hover:text-red-700 transition-colors">
+                                                <X />
+                                            </button>
+                                        </div>
+                                    </div>
+                                )) : <p className="text-center text-gray-500">El carrito está vacío.</p>}
+                            </div>
+                            <div className="mt-6 pt-4 border-t border-gray-300 flex justify-between items-center">
+                                <span className="text-lg font-bold">Total:</span>
+                                <span className="text-2xl font-bold text-indigo-600">${total.toFixed(2)}</span>
+                            </div>
+                            <button onClick={handleCheckout} disabled={cart.length === 0} className={`mt-6 w-full text-white font-bold py-3 rounded-lg shadow-md transition-colors ${cart.length === 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-500 hover:bg-green-600'}`}>
+                                Finalizar Pedido
+                            </button>
+                        </div>
+                        <div className="w-full md:w-1/3 p-6 bg-white rounded-lg shadow-md">
+                            <h3 className="text-xl font-semibold mb-4">Resumen de Ventas</h3>
+                            <p className="text-gray-600">Al finalizar un pedido, la factura se guarda en el historial y el stock se actualiza automáticamente.</p>
+                            <button onClick={() => setActiveTab('facturas')} className="mt-4 w-full bg-blue-500 text-white font-bold py-2 rounded-lg hover:bg-blue-600 transition-colors">
+                                Ver Historial de Facturas
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const ContactsTab = () => (
+            <div>
+                <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-2xl font-bold text-gray-700">Contactos (Clientes y Proveedores)</h2>
+                    <button onClick={() => { setCurrentContact(null); setShowContactModal(true); }} className="bg-blue-500 text-white p-2 rounded-full shadow-lg hover:bg-blue-600 transition-colors">
+                        <Plus />
+                    </button>
+                </div>
+                <div className="space-y-4">
+                    {contacts.length > 0 ? contacts.map(contact => (
+                        <div key={contact.id} className="bg-white p-4 rounded-lg shadow-sm flex items-center justify-between">
+                            <div>
+                                <h3 className="font-bold text-gray-800">{contact.name}</h3>
+                                <p className="text-sm text-gray-600">{contact.email}</p>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <span className={`py-1 px-3 text-xs font-semibold rounded-full ${contact.type === 'Cliente' ? 'bg-indigo-200 text-indigo-800' : 'bg-orange-200 text-orange-800'}`}>
+                                    {contact.type}
+                                </span>
+                                <button onClick={() => { setCurrentContact(contact); setShowContactModal(true); }} className="p-1 rounded-lg text-gray-500 hover:text-gray-800 transition-colors">
+                                    <Edit />
+                                </button>
+                            </div>
+                        </div>
+                    )) : <p className="text-center text-gray-500">No hay contactos registrados. Por favor, agregue algunos.</p>}
+                </div>
+            </div>
+        );
+
+        const EmployeesTab = () => (
+            <div>
+                <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-2xl font-bold text-gray-700">Gestión de Empleados</h2>
+                    <button onClick={() => { setCurrentEmployee(null); setShowEmployeeModal(true); }} className="bg-blue-500 text-white p-2 rounded-full shadow-lg hover:bg-blue-600 transition-colors">
+                        <Plus />
+                    </button>
+                </div>
+                <div className="space-y-4">
+                    {employees.length > 0 ? employees.map(employee => (
+                        <div key={employee.id} className="bg-white p-4 rounded-lg shadow-sm flex items-start justify-between">
+                            <div>
+                                <h3 className="font-bold text-gray-800 text-lg">{employee.name}</h3>
+                                <p className="text-sm text-gray-600 mt-1">Rol: {employee.role}</p>
+                                <p className="text-sm text-gray-500 mt-2">Funciones: {employee.functions}</p>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <button onClick={() => { setCurrentEmployee(employee); setShowEmployeeModal(true); }} className="p-1 rounded-lg text-gray-500 hover:text-gray-800 transition-colors">
+                                    <Edit />
+                                </button>
+                            </div>
+                        </div>
+                    )) : <p className="text-center text-gray-500">No hay empleados registrados. Por favor, agregue algunos.</p>}
+                </div>
+            </div>
+        );
+        
+        const InvoicesTab = () => (
+            <div>
+                <h2 className="text-2xl font-bold text-gray-700 mb-4">Historial de Facturas</h2>
+                <div className="space-y-4">
+                    {invoices.length > 0 ? invoices.map(invoice => (
+                        <div key={invoice.id} onClick={() => {setCurrentInvoice(invoice); setShowInvoiceModal(true);}} className="bg-white p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer flex justify-between items-center">
+                            <div>
+                                <p className="text-sm text-gray-500">Factura ID: {invoice.id.substring(0, 8)}...</p>
+                                <p className="text-lg font-bold text-gray-800">${invoice.total.toFixed(2)}</p>
+                                <p className="text-xs text-gray-400">Fecha: {new Date(invoice.timestamp).toLocaleString()}</p>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <span className={`py-1 px-3 text-xs font-semibold rounded-full ${invoice.estado === 'Entregado' ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800'}`}>
+                                    {invoice.estado}
+                                </span>
+                                <ChevronRight />
+                            </div>
+                        </div>
+                    )) : <p className="text-center text-gray-500">No hay facturas guardadas. Realice una venta para ver el historial.</p>}
+                </div>
+            </div>
+        );
+
+        const OrdersTab = () => {
+            const pendingInvoices = invoices.filter(inv => inv.estado === 'Pendiente');
+            const completedInvoices = invoices.filter(inv => inv.estado === 'Entregado');
+            const handleMarkDelivered = (invoiceId) => {
+                setConfirmation({
+                    message: '¿Estás seguro de que deseas marcar esta orden como entregada?',
+                    onConfirm: () => updateInvoiceStatus(invoiceId, 'Entregado'),
+                });
+            };
+            const handleMarkPending = (invoiceId) => {
+                 setConfirmation({
+                    message: '¿Estás seguro de que deseas marcar esta orden como pendiente?',
+                    onConfirm: () => updateInvoiceStatus(invoiceId, 'Pendiente'),
+                });
+            };
+
+            return (
+                <div>
+                    <h2 className="text-2xl font-bold text-gray-700 mb-4">Órdenes de Entrega</h2>
+                    <div className="space-y-6">
+                        <div>
+                            <h3 className="text-xl font-semibold mb-2 text-red-600">Órdenes Pendientes</h3>
+                            <div className="space-y-4">
+                                {pendingInvoices.length > 0 ? pendingInvoices.map(invoice => (
+                                    <div key={invoice.id} className="bg-white p-4 rounded-lg shadow-sm flex items-center justify-between">
+                                        <div>
+                                            <p className="text-sm font-bold">Factura ID: {invoice.id.substring(0, 8)}...</p>
+                                            <p className="text-gray-600">Total: ${invoice.total.toFixed(2)}</p>
+                                            <p className="text-xs text-gray-400">Fecha: {new Date(invoice.timestamp).toLocaleString()}</p>
+                                        </div>
+                                        <button onClick={() => handleMarkDelivered(invoice.id)} className="bg-green-500 text-white py-2 px-4 rounded-lg hover:bg-green-600 transition-colors">
+                                            Marcar como Entregado
+                                        </button>
+                                    </div>
+                                )) : <p className="text-gray-500">No hay órdenes pendientes.</p>}
+                            </div>
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-semibold mb-2 text-green-600">Órdenes Entregadas</h3>
+                            <div className="space-y-4">
+                                {completedInvoices.length > 0 ? completedInvoices.map(invoice => (
+                                    <div key={invoice.id} className="bg-white p-4 rounded-lg shadow-sm flex items-center justify-between opacity-70">
+                                        <div>
+                                            <p className="text-sm font-bold">Factura ID: {invoice.id.substring(0, 8)}...</p>
+                                            <p className="text-gray-600">Total: ${invoice.total.toFixed(2)}</p>
+                                            <p className="text-xs text-gray-400">Fecha: {new Date(invoice.timestamp).toLocaleString()}</p>
+                                        </div>
+                                        <button onClick={() => handleMarkPending(invoice.id)} className="bg-red-500 text-white py-2 px-4 rounded-lg hover:bg-red-600 transition-colors">
+                                            Marcar como Pendiente
+                                        </button>
+                                    </div>
+                                )) : <p className="text-gray-500">No hay órdenes entregadas.</p>}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const renderContent = () => {
+            if (isLoading) {
+                return (
+                    <div className="flex flex-col items-center justify-center p-8">
+                        <Loader2 className="animate-spin text-blue-500" size={48} />
+                        <p className="mt-4 text-lg text-gray-600">Cargando aplicación y conectando a la base de datos...</p>
+                    </div>
+                );
+            }
+
+            switch (activeTab) {
+                case 'inventario': return <InventoryTab />;
+                case 'ventas': return <SalesTab />;
+                case 'contactos': return <ContactsTab />;
+                case 'empleados': return <EmployeesTab />;
+                case 'facturas': return <InvoicesTab />;
+                case 'ordenes': return <OrdersTab />;
+                default: return null;
+            }
+        };
+
+        return (
+            // Contenedor principal
+            <div className="relative w-full min-h-screen p-6 overflow-hidden">
+                {/* Fondo e imagen de fondo */}
+                <div 
+                    className="absolute inset-0 z-0 bg-fixed bg-cover bg-center" 
+                    style={{ backgroundImage: `url('https://images.unsplash.com/photo-1542382959-1d017a42167d?q=80&w=2670&auto=format&fit=crop')` }}
+                ></div>
+                {/* Capa semi-transparente para mejorar la legibilidad */}
+                <div className="absolute inset-0 z-10 bg-gray-900 opacity-80"></div>
+
+                {/* Contenedor de contenido sobre el fondo */}
+                <div className="relative z-20 bg-white rounded-xl shadow-2xl p-6 w-full max-w-5xl mx-auto">
+                    <div className="flex justify-between items-center mb-6">
+                        <h1 className="text-3xl font-bold text-gray-800">Sistema de Gestión</h1>
+                        <span className="text-gray-500 font-medium">JDC TECH</span>
+                    </div>
+
+                    <div className="flex border-b border-gray-200 mb-6 flex-wrap">
+                        <button id="tab-inventario" onClick={() => setActiveTab('inventario')} className={`tab-button flex items-center py-3 px-4 text-center text-lg font-semibold rounded-tl-lg rounded-tr-lg hover:bg-gray-200 transition-colors duration-200 ${activeTab === 'inventario' ? 'bg-blue-500 text-white' : 'text-gray-600'}`}>
+                            <Package /> Inventario
+                        </button>
+                        <button id="tab-ventas" onClick={() => setActiveTab('ventas')} className={`tab-button flex items-center py-3 px-4 text-center text-lg font-semibold rounded-tl-lg rounded-tr-lg hover:bg-gray-200 transition-colors duration-200 ${activeTab === 'ventas' ? 'bg-blue-500 text-white' : 'text-gray-600'}`}>
+                            <ShoppingCart /> Ventas
+                        </button>
+                        <button id="tab-contactos" onClick={() => setActiveTab('contactos')} className={`tab-button flex items-center py-3 px-4 text-center text-lg font-semibold rounded-tl-lg rounded-tr-lg hover:bg-gray-200 transition-colors duration-200 ${activeTab === 'contactos' ? 'bg-blue-500 text-white' : 'text-gray-600'}`}>
+                            <Users /> Contactos
+                        </button>
+                        <button id="tab-empleados" onClick={() => setActiveTab('empleados')} className={`tab-button flex items-center py-3 px-4 text-center text-lg font-semibold rounded-tl-lg rounded-tr-lg hover:bg-gray-200 transition-colors duration-200 ${activeTab === 'empleados' ? 'bg-blue-500 text-white' : 'text-gray-600'}`}>
+                            <Briefcase /> Empleados
+                        </button>
+                        <button id="tab-facturas" onClick={() => setActiveTab('facturas')} className={`tab-button flex items-center py-3 px-4 text-center text-lg font-semibold rounded-tl-lg rounded-tr-lg hover:bg-gray-200 transition-colors duration-200 ${activeTab === 'facturas' ? 'bg-blue-500 text-white' : 'text-gray-600'}`}>
+                            <Printer /> Facturas
+                        </button>
+                        <button id="tab-ordenes" onClick={() => setActiveTab('ordenes')} className={`tab-button flex items-center py-3 px-4 text-center text-lg font-semibold rounded-tl-lg rounded-tr-lg hover:bg-gray-200 transition-colors duration-200 ${activeTab === 'ordenes' ? 'bg-blue-500 text-white' : 'text-gray-600'}`}>
+                            <Package /> Órdenes
+                        </button>
+                    </div>
+                    
+                    <div className="scrollable-content">
+                        {renderContent()}
+                    </div>
+
+                    {showProductModal && (
+                        <Modal onClose={() => { setShowProductModal(false); setCurrentProduct(null); }}>
+                            <ProductForm />
+                        </Modal>
+                    )}
+                    {showContactModal && (
+                        <Modal onClose={() => { setShowContactModal(false); setCurrentContact(null); }}>
+                            <ContactForm />
+                        </Modal>
+                    )}
+                    {showEmployeeModal && (
+                        <Modal onClose={() => { setShowEmployeeModal(false); setCurrentEmployee(null); }}>
+                            <EmployeeForm />
+                        </Modal>
+                    )}
+                    {showInvoiceModal && (
+                        <Modal onClose={() => setShowInvoiceModal(false)}>
+                            <InvoiceModalContent invoice={currentInvoice} />
+                        </Modal>
+                    )}
+                    {message && (
+                        <MessageModal message={message} onClose={() => setMessage(null)} />
+                    )}
+                    {confirmation && (
+                        <ConfirmationModal 
+                            message={confirmation.message}
+                            onConfirm={confirmation.onConfirm}
+                            onClose={() => setConfirmation(null)}
+                        />
+                    )}
+
+                    <div className="absolute top-4 right-4 text-sm text-gray-500">
+                        UserID: {userId || 'Cargando...'}
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    // Renderiza la aplicación cuando la ventana esté completamente cargada
+    window.onload = function() {
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    };
 
 </script>
 
